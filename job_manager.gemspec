@@ -1,3 +1,5 @@
+Gem::Specification.new do |s|
+
 s.name        = 'job_manager'
   s.version     = '0.0.1'
   s.date        = '2017-05-05'
@@ -11,3 +13,6 @@ s.name        = 'job_manager'
   s.homepage    = 
   
   s.license       = 'MIT'
+
+
+end
