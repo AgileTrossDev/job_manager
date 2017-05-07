@@ -1,21 +1,34 @@
 
-require "timeout"
+
 
 module JM
     class Job
-      def initialize action, handlers = {}, name = "undefined_job"
+    attr_accessor :name, :state, :exception, :time_out, :input
+      def initialize action, input =nil,  handlers = {}, name = "undefined_job", time_out=10, start_after = nil
           @action = action
           @handlers = {:default => (lambda { |x| self.default_handler(x) })}
           @handlers = @handlers.merge(handlers)
-          
+          @start_after = start_after
+          @input = input
+          @time_out = time_out
           
           @name = name
-          
+          @state = "pending"
+          @exception = nil 
           puts "Job Created: #{name}"
       end
       
-      def execute input
-          @action.call(input)
+      def execute input =nil
+          @state = "started"
+          @input = input unless input.nil?
+          begin
+            @state = @action.call(@input)
+             puts "Job #{@name} action complete."
+          rescue => e
+            puts "Job #{@name} encountered exception during execution. Explanation: #{e.message}"
+            @state = "exception"
+          end
+          @state
       end
       
       def call_handler(handle, input=nil)

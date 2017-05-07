@@ -7,25 +7,41 @@ require "jm/job.rb"
 require "helper"
 
 class TestJob < Minitest::Test
+  
+  include TEST
+  @test_suite = "TestJob"
+  
+  
+  def setup
+    
+  end
+  
+  def teardown
+    common_teardown
+     
+  end
+  
   def test_job_create
+    set_test_step_name "test_job_create"
     action = generic_action
-    test = JM::Job.new(action, {}, "test_job_create" )
+    test = JM::Job.new(action,nil, {}, "test_job_create" )
     
     assert_equal false, test.nil?
   end
   
   def test_job_action
+      set_test_step_name "test_job_action"
     action = generic_action
-    test = JM::Job.new(action, {}, "test_job_action" )
+    test = JM::Job.new(action,nil, {}, "test_job_action" )
     result = test.execute"test_job_action"
     assert_equal true, result
   end
   
   def test_job_handler
-      
+    set_test_step_name "test_job_handler"
     action = generic_action
-    handlers = {:test => generic_handler}
-    test = JM::Job.new(action, handlers, "test_job_handler" )
+    handlers = generic_handler_input
+    test = JM::Job.new(action,nil, handlers, "test_job_handler" )
     
     result = test.execute"test_job_handler"
     assert_equal true, result
@@ -35,10 +51,11 @@ class TestJob < Minitest::Test
   end
   
   def test_job_default_handler
-      
+    set_test_step_name "test_job_default_handler"
+    
     action = generic_action
-    handlers = {:test => generic_handler}
-    test = JM::Job.new(action, handlers, "test_job_default_handler" )
+    handlers = generic_handler_input
+    test = JM::Job.new(action,nil, handlers, "test_job_default_handler" )
     
     result = test.execute"test_job_handler"
     assert_equal true, result
@@ -48,10 +65,10 @@ class TestJob < Minitest::Test
   end
   
   def test_job_undefined_handler
-      
+    set_test_step_name "test_job_undefined_handler"
     action = generic_action
-    handlers = {:test => generic_handler}
-    test = JM::Job.new(action, handlers, "test_job_undefined_handler" )
+    handlers = generic_handler_input
+    test = JM::Job.new(action,nil, handlers, "test_job_undefined_handler" )
     
     result = test.execute"test_job_undefined_handler"
     assert_equal true, result
