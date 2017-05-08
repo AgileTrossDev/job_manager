@@ -9,11 +9,9 @@ require "helper"
 class TestJob < Minitest::Test
   
   include TEST
-  @test_suite = "TestJob"
-  
   
   def setup
-    
+    @test_suite = "TestJob"  
   end
   
   def teardown
@@ -39,35 +37,52 @@ class TestJob < Minitest::Test
   
   def test_job_handler
     set_test_step_name "test_job_handler"
-    action = generic_action
-    handlers = generic_handler_input
-    test = JM::Job.new(action,nil, handlers, "test_job_handler" )
     
+    # Build Actions and Handlers
+    action = generic_action
+    handlers = generic_handler
+    
+    # Build Job
+    test = JM::Job.new(action,nil, handlers, "test_job_handler",11)
+    
+    # Execute good action
     result = test.execute"test_job_handler"
     assert_equal true, result
     
-    result = test.call_handler(:test, "test_job_handler--->CALLED!!!")
+    # Execute handler
+    result = test.call_handler("test_job_handler--->CALLED!!!")
     assert_equal true, result
+    
   end
   
   def test_job_default_handler
     set_test_step_name "test_job_default_handler"
     
+    
+    # Set Actions and Handlers
     action = generic_action
-    handlers = generic_handler_input
+    handlers = generic_handler
+    
+    # Create Job
     test = JM::Job.new(action,nil, handlers, "test_job_default_handler" )
     
+    # Execute Job
     result = test.execute"test_job_handler"
     assert_equal true, result
     
-    result = test.call_handler(:default, "test_job_default_handler--->Sounds Good!!!")
-    assert_equal true, result
+    # Execute Default Handler, which should 
+    assert_raises RuntimeError do
+      result = test.call_handler(:default, "test_job_default_handler--->Sounds Good!!!")
+    end
   end
   
   def test_job_undefined_handler
     set_test_step_name "test_job_undefined_handler"
+    
+    # Set Actions and Handlers
     action = generic_action
-    handlers = generic_handler_input
+    handlers = nil
+    
     test = JM::Job.new(action,nil, handlers, "test_job_undefined_handler" )
     
     result = test.execute"test_job_undefined_handler"
@@ -76,6 +91,43 @@ class TestJob < Minitest::Test
     result = test.call_handler(:undefined, "test_job_undefined_handler--->Sounds Good!!!")
     assert_equal true, result
    
+  end
+  
+  
+  def test_job_generic_exception_without_handler
+    set_test_step_name "test_job_generic_exception"
+    
+    puts "Building job..."
+    test = generic_exception_action
+    
+    puts "Executing job..."
+    result = test.execute"test_job_generic_exception"
+    
+    assert_equal "exception", result
+  end
+   
+  def test_job_generic_exception_with_default_handler
+    set_test_step_name "test_job_generic_exception_with_handler"
+    
+    #puts "Building job..."
+    #test = generic_exception_action
+    #
+    #puts "Executing job..."
+    #result = test.execute"test_job_generic_exception"
+    #
+    #assert_equal "exception", result
+  end
+  
+  def test_job_generic_exception_with_specilized_handler
+    set_test_step_name "test_job_generic_exception_with_handler"
+    
+    #puts "Building job..."
+    #test = generic_exception_action
+    #
+    #puts "Executing job..."
+    #result = test.execute"test_job_generic_exception"
+    #
+    #assert_equal "exception", result
   end
     
     
