@@ -64,6 +64,11 @@ module TEST
       obj
     end
     
+    def generic_exception_job_with_handler name = @test_name, input =nil
+      obj = JM::Job.new((generic_exception_action), input, generic_handler, name,11 )
+      obj
+    end
+    
     
     #### Helpful Test Stuff ####
     

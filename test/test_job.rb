@@ -22,16 +22,21 @@ class TestJob < Minitest::Test
   def test_job_create
     set_test_step_name "test_job_create"
     action = generic_action
-    test = JM::Job.new(action,nil, {}, "test_job_create" )
-    
+    test = JM::Job.new(action,nil, nil, "test_job_create" )    
     assert_equal false, test.nil?
   end
   
+  
   def test_job_action
-      set_test_step_name "test_job_action"
+    set_test_step_name "test_job_action"
+    
+    # Build Test Object
     action = generic_action
-    test = JM::Job.new(action,nil, {}, "test_job_action" )
-    result = test.execute"test_job_action"
+    test = JM::Job.new(action,nil, nil, "test_job_action" )
+    assert_equal false, test.nil?
+    
+    # Execute and verify results.
+    result = test.execute "test_job_action"
     assert_equal true, result
   end
   
@@ -55,40 +60,39 @@ class TestJob < Minitest::Test
     
   end
   
-  def test_job_default_handler
-    set_test_step_name "test_job_default_handler"
-    
+  def test_job_default_handler_called_externally
+    set_test_step_name "test_job_default_handler_called_externally"
     
     # Set Actions and Handlers
     action = generic_action
     handlers = generic_handler
     
     # Create Job
-    test = JM::Job.new(action,nil, handlers, "test_job_default_handler" )
+    test = JM::Job.new(action,nil, handlers, "test_job_default_handler_called_externally" )
     
     # Execute Job
-    result = test.execute"test_job_handler"
+    result = test.execute "test_job_handler"
     assert_equal true, result
     
-    # Execute Default Handler, which should 
-    assert_raises RuntimeError do
-      result = test.call_handler(:default, "test_job_default_handler--->Sounds Good!!!")
-    end
+    # Execute Default Handler, which should     
+    result = test.call_handler("test_job_default_handler_called_externally--->Sounds Good!!!")
+    assert_equal true, result
+    
   end
   
-  def test_job_undefined_handler
-    set_test_step_name "test_job_undefined_handler"
+  def test_job_undefined_handler_called_externally
+    set_test_step_name "test_job_undefined_handler_called_externally"
     
     # Set Actions and Handlers
     action = generic_action
     handlers = nil
     
-    test = JM::Job.new(action,nil, handlers, "test_job_undefined_handler" )
+    test = JM::Job.new(action,nil, handlers, "test_job_undefined_handler_called_externally" )
     
-    result = test.execute"test_job_undefined_handler"
+    result = test.execute"test_job_undefined_handler_called_externally"
     assert_equal true, result
     
-    result = test.call_handler(:undefined, "test_job_undefined_handler--->Sounds Good!!!")
+    result = test.call_handler("test_job_undefined_handler_called_externally--->Sounds Good!!!")
     assert_equal true, result
    
   end
@@ -98,7 +102,7 @@ class TestJob < Minitest::Test
     set_test_step_name "test_job_generic_exception"
     
     puts "Building job..."
-    test = generic_exception_action
+    test = generic_exception_job
     
     puts "Executing job..."
     result = test.execute"test_job_generic_exception"
@@ -109,26 +113,26 @@ class TestJob < Minitest::Test
   def test_job_generic_exception_with_default_handler
     set_test_step_name "test_job_generic_exception_with_handler"
     
-    #puts "Building job..."
-    #test = generic_exception_action
-    #
-    #puts "Executing job..."
-    #result = test.execute"test_job_generic_exception"
-    #
-    #assert_equal "exception", result
+    puts "Building job..."
+    test = generic_exception_job_with_handler
+    
+    puts "Executing job..."
+    result = test.execute "test_job_generic_exception"
+    
+    assert_equal "exception", result
   end
   
-  def test_job_generic_exception_with_specilized_handler
-    set_test_step_name "test_job_generic_exception_with_handler"
-    
-    #puts "Building job..."
-    #test = generic_exception_action
-    #
-    #puts "Executing job..."
-    #result = test.execute"test_job_generic_exception"
-    #
-    #assert_equal "exception", result
-  end
+  #def test_job_generic_exception_with_specilized_handler
+  #  set_test_step_name "test_job_generic_exception_with_handler"
+  #  
+  #  #puts "Building job..."
+  #  #test = generic_exception_action
+  #  #
+  #  #puts "Executing job..."
+  #  #result = test.execute"test_job_generic_exception"
+  #  #
+  #  #assert_equal "exception", result
+  #end
     
     
 end

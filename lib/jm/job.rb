@@ -5,21 +5,26 @@
 #        may call the handler directly.
 
 require 'timeout'
+require 'jm/logger'
 
 module JM
   class Job
-    attr_accessor :name, :state, :exception, :time_out, :input
+    attr_accessor :name, :state, :exception, :time_out, :input, :logger
   
-    def initialize action, input =nil,  handler = nil, name = "undefined_job", time_out=10
+    def initialize action, input =nil,  handler = nil, name = "undefined_job", time_out=10, logger = JM::Logger.new
       @action = action      # Sets the action to be performed by the job          
       @input = input        # Input into the Action being executed.
       @handler = handler    # Optional lambda call back from Job for any post-procesing/job handling. IMPORTANT- This work counts against the execution time-out.
       @name = name          # Name give to the job
       @time_out = time_out  # Indicates when to assume execution has stalled      
       @state = "pending"    # Current State of the Job
-      @exception = nil      # Exception (if any) encoutnered during execution    
+      @exception = nil      # Exception (if any) encoutnered during execution
+      @logger = logger      # Sets logger to be used by the Job Manager.  # TODO: Make sure that it responds to RLOG operations     
         
-      puts "Job Created: #{name}"
+      logger.info "Job Created: #{name}"
+      
+      logger.info "Handler object #{@handler.class} not supported." if not @handler.nil? and not @handler.respond_to?("call")
+      
     end
       
     # Executes the job and calls the handler if it is turned on.
@@ -31,10 +36,10 @@ module JM
         
         begin
           @state = @action.call(@input)
-          puts "Job #{@name} action complete."
+          logger.info "Job #{@name} action complete."
           handler_input = @state 
         rescue => e
-          puts "Job #{@name} encountered exception during execution: #{e.message}"
+          logger.info "Job #{@name} encountered exception during execution: #{e.message}"
           @exception = e            
           @state= "exception"                                    
           handler_input= e
@@ -42,7 +47,9 @@ module JM
         
         # Call handler if turned on
         call_handler handler_input
-      }        
+      }
+      
+      @state
     rescue Timeout::Error => e
       call_handler(e)      
     ensure
@@ -52,10 +59,13 @@ module JM
       
       
     # Calls Handler and updates state if error
-    def call_handler(handler_input=nil)        
-      @handler.call (handler_input) unless @handler.nil?           
+    def call_handler(handler_input=nil)
+      if not @handler.nil?  and @handler.respond_to?("call")
+        @handler.call (handler_input)
+      end
+      true
     rescue => e
-      puts "Job #{@name} encountered exception raised from handler call: #{e.message}"
+      logger.info "Job #{@name} encountered exception raised from handler call: #{e.message}"
       @exception = e  unless not @exception.nil?  # Don't overwrite previous exception
       @state="handler_exception"
     ensure

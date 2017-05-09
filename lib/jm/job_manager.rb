@@ -1,9 +1,24 @@
+# This acts as thread pool for a collection of "workers".  The health of the
+# pool is monitored by a separate thread.   All workers are launched and terminated
+# from within the pool,  A queue is used to manage the backlog of tasks that the workers
+# will perform.  Users of the Job Manager can submit Job instances to the queue and the
+# worker threads will pull tasks from the queue in FIFO.  By default when the manager is
+# told to stop it will wait for the backlog of jobs to finish first.
+#
+# Management of Workers includes...
+#   - Exception Handling
+#   - Time-outs
+#   - 
+
+
 require 'thread'
 require 'timeout'
 
+require 'jm/logger'
+
 module JM
 class JobManager
-  
+  attr_accessor :logger
   
   ACTIVE = true
   OFF = false
@@ -11,7 +26,7 @@ class JobManager
   ####################################################
   # Constructor
   ####################################################
-  def initialize
+  def initialize logger = JM::Logger.new
     @queue = Queue.new          # Holds pending job (FIO)
     @monitor = nil              # Thead monitoring Job Manager
     @workers = []               # Collection of Workers
@@ -20,8 +35,9 @@ class JobManager
     @monitor_exec = false       # Indicates Monitor should continue to run
     @worker_exec= false         # Indicates all Workers should continue to work
     @workers_mutex = Mutex.new  # NOTE: Transcations should be short and sweet
-    @state_mutex = Mutex.new    # NOTE: Transcations should be short and sweet    
-    puts "Job Manager Created"
+    @state_mutex = Mutex.new    # NOTE: Transcations should be short and sweet
+    @logger = logger
+    logger.info "Job Manager Created"
   end
 
   ###############################################
@@ -45,9 +61,9 @@ class JobManager
   ##############################################################################################
   def start(max = nil) 
     if exec_state  and worker_exec_state and monitor_exec_state and @max_jobs == max
-      puts "Job Manager already started, no need to start it again"    
+      logger.info "Job Manager already started, no need to start it again"    
     else
-      puts "Job Manager starting up"
+      logger.info "Job Manager starting up"
       
       # Prepare state for execution
       max_jobs max unless max.nil?
@@ -79,7 +95,7 @@ class JobManager
     # Can't do much if we are not active or the worker pool is full
     return if OFF == worker_exec_state or max_jobs <= worker_count
     
-    puts "Work force is capped at #{@max_jobs}.  Now adding additional #{@max_jobs - worker_count}workers"
+    logger.info "Work force is capped at #{@max_jobs}.  Now adding additional #{@max_jobs - worker_count} workers"
     
     # Grab current work force state 
     current_work_force = worker_count
@@ -91,7 +107,7 @@ class JobManager
         begin
           @workers.push(Thread.new{worker_exec_loop("#{id}_#{Thread.current.object_id}")})
         rescue => e
-          puts "Exception caught while starting a Worker Thread: #{e.message}"
+          logger.info "Exception caught while starting a Worker Thread: #{e.message}"
         end
       end
     }
@@ -106,9 +122,9 @@ class JobManager
     
     begin
       @monitor = Thread.new {monitor_exec_loop }
-      puts "Started Job Manager Monitor"
+      logger.info "Started Job Manager Monitor"
     rescue =>e
-      puts "Exception caught while launching the monitor thread. #{e.message}"
+      logger.info "Exception caught while launching the monitor thread. #{e.message}"
     end
     
     @monitor 
@@ -119,7 +135,7 @@ class JobManager
   # Stops all workers, monitor and closes the queue s
   #####################################################
   def stop
-    puts "Stopping the Job Manager"
+    logger.info "Stopping the Job Manager"
     
     # Turn off execution to prevent new jobs from being added
     exec_state false
@@ -131,7 +147,7 @@ class JobManager
     # Now Shutdown the monitor
     shutdown_monitor
     
-    puts "Job Manager has been completely stopped."
+    logger.info "Job Manager has been completely stopped."
   end
   
   def hard_stop
@@ -157,12 +173,12 @@ class JobManager
   def shutdown_workers num = worker_count
     max_jobs ((max_jobs) -num)
     if num == worker_count or 0 == max_jobs
-      puts "Gracefully shutting down all workers in the pool"
+      logger.info "Gracefully shutting down all workers in the pool"
       worker_exec_state false   
       kill_sleeping_workers @queue.num_waiting
       wait_for_workers_to_finish
     else
-      puts "Shutting down #{num} workers.  Remaining #{max_jobs} Workers will continue to execute."
+      logger.info "Shutting down #{num} workers.  Remaining #{max_jobs} Workers will continue to execute."
       kill_sleeping_workers num 
     end
   end
@@ -174,14 +190,14 @@ class JobManager
   # stops and all workers have been cleaned
   #####################################################
   def monitor_exec_loop
-    puts "Monitor loop starting."
+    logger.info "Monitor loop starting."
     
     while monitor_exec_state or 0<worker_count
       sleep(20)
       clean_up_workers
       start_worker_threads
     end
-    puts "Monitor Thread gracefully shutting down."
+    logger.info "Monitor Thread gracefully shutting down."
   end
 
   ####################################################
@@ -192,31 +208,31 @@ class JobManager
   ####################################################
   def worker_exec_loop id = nil
     
-    puts "Worker Thread #{id} started."
+    logger.info "Worker Thread #{id} started."
     while (true == worker_exec_state)
-      puts "Worker Thread #{id} waiting on next job."
+      logger.info "Worker Thread #{id} waiting on next job."
       job = get_next_job
      
       if job.class == Job
-        puts "Worker Thread #{id} pulled Job: #{job.name}"
+        logger.info "Worker Thread #{id} pulled Job: #{job.name}"
         begin 
           job.execute
         rescue => e
           Timeout::timeout(10)  {job.call_handler(e) } rescue nil
         end        
       elsif job == "kill"
-        puts "Worker Thread #{id} recieved kill notification"
+        logger.info "Worker Thread #{id} told to stop executing."
         break
       elsif job.nil?
         # NIL jobs are sometimes used to get around blocking
-        puts "Worker Thread #{id} - NIL Job encountered"
+        logger.info "Worker Thread #{id} - NIL Job encountered"
         sleep(0.25) 
         next
       else
-        puts "Worker Thread #{id} encountered a job it does not know how to handle"
+        logger.info "Worker Thread #{id} encountered a job it does not know how to handle"
       end
     end # WHILE
-    puts "Worker Thread #{id} gracefully shut down."
+    logger.info "Worker Thread #{id} gracefully shut down."
     poke_monitor # Tell monitor cycle to clean-up effeciently 
    
   end
@@ -237,7 +253,7 @@ class JobManager
   end
   
   def status
-    puts "Queue Status - Length: #{@queue.length} Num Waiting: #{@queue.num_waiting} Workers: #{worker_count}"
+    logger.info "Queue Status - Length: #{@queue.length} Num Waiting: #{@queue.num_waiting} Workers: #{worker_count}"
   end
   
   # Wake-up monitor from sleep for faster reaction
@@ -318,17 +334,15 @@ class JobManager
   #### Stop/Shutdown Operations ####
   
   
-  #####################################################
-  # Removes workers that aren't active
-  #####################################################
   def clean_up_workers
+    # Removes workers from potential workforce that aren't active (sleeping/running"
     with_workers_mutex {
       @workers.delete_if do |worker|
         good_state = check_thread_health worker
         delete = false
         if not good_state
           thread_status = thread_status_look_up worker.status
-          puts "Encountered an expired worker. (#{thread_status})  Firing this one."
+          logger.info "Encountered an expired worker. (#{thread_status})  Firing this one."
           worker.join
           delete = true
         end 
@@ -347,7 +361,7 @@ class JobManager
     
     remaining = @queue.length - number
     remaining = 0 if remaining <0
-    puts "#{number} out of #{worker_count} set to terminate with an estimated #{remaining} jobs remaining. "
+    logger.info "#{number} out of #{worker_count} set to terminate with an estimated #{remaining} jobs remaining. "
   end
   
   
@@ -355,11 +369,12 @@ class JobManager
     # Assumes that workers are already finalizing work and shutting down
     # NOTE: Any additional work added to the queue will not be worked
     # NOTE: If possible relies on monitor to perform clean-up
-    puts "Waiting on #{worker_count} worker to finalize."
+    logger.info "Waiting on #{worker_count} worker to finalize."
     
     while 0< worker_count and monitor_exec_state
       sleep (2)
       clean_up_workers unless monitor_health_check
+      kill_sleeping_workers @queue.num_waiting if 0 < @queue.num_waiting
     end    
   end
     
@@ -369,15 +384,15 @@ class JobManager
     raise "No workers to perform final #{@queue.num_waiting} jobs" if 0 == worker_count and 0< @queue.length
     raise "Can't wait for work to complete while actively accepting jobs."  if ACTIVE == exec_state
     
-    puts "Waiting on #{@queue.length} Jobs to execute."
+    logger.info "Waiting on #{@queue.length} Jobs to execute."
     while 0 < @queue.length and OFF == exec_state and  0< worker_count
       sleep (@queue.length*1)
     end
     
     if 0 ==@queue.length
-      puts "Queue is empty.  Workers may still be actively executing jobs"
+      logger.info "Queue is empty.  Workers may still be actively executing jobs"
     else
-      puts "Queue is not empty. State must have changed that prevented final #{@queue.length} pending jobs to complete."
+      logger.info "Queue is not empty. State must have changed that prevented final #{@queue.length} pending jobs to complete."
     end
       
   end
