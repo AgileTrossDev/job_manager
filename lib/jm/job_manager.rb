@@ -26,7 +26,7 @@ class JobManager
   ####################################################
   # Constructor
   ####################################################
-  def initialize logger = JM::Logger.new
+  def initialize i_logger = JM::Logger.new
     @queue = Queue.new          # Holds pending job (FIO)
     @monitor = nil              # Thead monitoring Job Manager
     @workers = []               # Collection of Workers
@@ -36,8 +36,8 @@ class JobManager
     @worker_exec= false         # Indicates all Workers should continue to work
     @workers_mutex = Mutex.new  # NOTE: Transcations should be short and sweet
     @state_mutex = Mutex.new    # NOTE: Transcations should be short and sweet
-    @logger = logger
-    logger.info "Job Manager Created"
+    @logger = i_logger.nil? ? (JM::Logger.new) : i_logger    
+    @logger.info "Job Manager Created"
   end
 
   ###############################################
@@ -77,6 +77,7 @@ class JobManager
       # Turn on execution and crank up threads    
       start_monitor
       start_worker_threads
+      sleep(0.25)
     end  
     
   end
