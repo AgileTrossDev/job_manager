@@ -10,8 +10,6 @@ module JM
   class Job
     attr_accessor :name, :state, :exception, :time_out, :input
   
-    
-    
     def initialize action, input =nil,  handler = nil, name = "undefined_job", time_out=10
       @action = action      # Sets the action to be performed by the job          
       @input = input        # Input into the Action being executed.

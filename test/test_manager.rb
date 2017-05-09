@@ -131,7 +131,7 @@ class TestJobManager < Minitest::Test
       Timeout::timeout(5) {result = jm.get_next_job}
     end
       
-    assert_equal nil, result
+    assert_nil result
     
   end
   
